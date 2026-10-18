@@ -5,14 +5,14 @@ Readiz 프로젝트에서 사용하는 에이전트 스킬을 공개하고 관�
 | 스킬 | 용도 |
 | --- | --- |
 | [readiz-web-ui](skills/readiz-web-ui/SKILL.md) | 작은 버튼·아이콘·표와 접힌 설명으로 콘텐츠 중심의 웹 UI를 설계하고 검증합니다. |
-| [readiz-web-crawling](skills/readiz-web-crawling/SKILL.md) | 수집기의 헤더·세션·재시도 정책을 진단하고 실제 본문 수집과 저장을 검증합니다. |
+| [readiz-web-crawling](skills/readiz-web-crawling/SKILL.md) | 실제 오류 문구·차단 여부부터 확인하고 오류별 대응과 본문 수집·저장을 검증합니다. |
 | [readiz-writing](skills/readiz-writing/SKILL.md) | 한국어 글의 문체·설명의 깊이·논증·퇴고를 관리합니다. 사이트 저장·게시와 독립적으로 사용합니다. |
 
 `readiz-web-ui`는 Readiz가 선호하는 디자인 기준입니다. 버튼 크기와 색상 등은 기본값이며, 사용자가 지정한 브랜드·플랫폼·접근성 요구를 먼저 따릅니다.
 
 `readiz-writing`은 Readiz의 원작성 글에서 이어 온 글쓰기 기준입니다. 일반 문체와 설명 원칙은 본문에, 해설·분석의 근거 검증과 투자 글의 판단 기준은 조건부 참고 문서에 둡니다. 사이트 운영은 기존 `readiz-blog`가 담당하며, 글쓰기 스킬을 사용할 때 블로그 저장이나 위키 게시를 자동으로 시작하지 않습니다.
 
-`readiz-web-crawling`은 공개 웹 수집기의 구현·복구에 사용합니다. 브라우저 헤더와 세션 조건을 비교하고 수집·저장·AI 처리의 성공을 구분합니다. 포함된 진단 도구는 프로젝트의 Playwright로 로컬 응답만 열어 브라우저 정보를 비교하며 대상 사이트에 요청하지 않습니다.
+`readiz-web-crawling`은 공개 웹 수집기의 구현·복구에 사용합니다. 실패 시 오류 본문을 먼저 확인해 사용자에게 알리고, [오류별 대응표](skills/readiz-web-crawling/references/error-handling.md)에 따라 차단·인증·속도 제한·서버 오류 등을 구분합니다. 그 뒤 필요한 브라우저 헤더·세션 비교를 수행하고 수집·저장·AI 처리의 성공을 구분합니다. 포함된 진단 도구는 프로젝트의 Playwright로 로컬 응답만 열어 브라우저 정보를 비교하며 대상 사이트에 요청하지 않습니다.
 
 ## 설치와 사용
 
