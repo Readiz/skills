@@ -1,0 +1,4 @@
+interface:
+  display_name: "Readiz 글쓰기"
+  short_description: "한국어 글의 문체·설명·논증을 다듬고 근거와 판단을 연결"
+  default_prompt: "$readiz-writing을 사용해 이 글의 문체와 논리 흐름을 다듬어줘."
