@@ -1,0 +1,4 @@
+interface:
+  display_name: "Readiz 웹 UI"
+  short_description: "작은 버튼·아이콘·표와 접힌 설명을 활용하는 컴팩트 웹 디자인"
+  default_prompt: "$readiz-web-ui를 사용해 이 웹 UI를 작고 간결하게 정리해줘."
