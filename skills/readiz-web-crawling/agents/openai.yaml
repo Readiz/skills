@@ -1,0 +1,4 @@
+interface:
+  display_name: "Readiz Web Crawling"
+  short_description: "헤더·세션·재시도 정책을 진단하고 실제 새 자료의 수집과 저장을 검증합니다."
+  default_prompt: "$readiz-web-crawling을 사용해 이 수집기의 실패 원인을 확인하고 요청 제한을 유지하며 수정해줘."
