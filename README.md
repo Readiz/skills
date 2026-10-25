@@ -7,7 +7,7 @@ Readiz 프로젝트에서 사용하는 에이전트 스킬을 공개하고 관�
 | [readiz-web-ui](skills/readiz-web-ui/SKILL.md) | 작은 버튼·아이콘·표와 접힌 설명으로 콘텐츠 중심의 웹 UI를 설계하고 검증합니다. |
 | [readiz-web-crawling](skills/readiz-web-crawling/SKILL.md) | 실제 오류 문구·차단 여부부터 확인하고 오류별 대응과 본문 수집·저장을 검증합니다. |
 | [readiz-writing](skills/readiz-writing/SKILL.md) | 한국어 글의 문체·설명의 깊이·논증·퇴고를 관리합니다. 사이트 저장·게시와 독립적으로 사용합니다. |
-| [readiz-disk-cleanup](skills/readiz-disk-cleanup/SKILL.md) | Mac 디스크를 조사하고 재생성 가능한 캐시·임시 파일 또는 NAS 검증 보관을 마친 비활성 산출물을 정리합니다. |
+| [readiz-disk-cleanup](skills/readiz-disk-cleanup/SKILL.md) | Mac 디스크를 조사하고 캐시를 정리하며, 비활성 산출물과 작업트리를 NAS 검증 보관 후 정리합니다. |
 
 `readiz-web-ui`는 Readiz가 선호하는 디자인 기준입니다. 버튼 크기와 색상 등은 기본값이며, 사용자가 지정한 브랜드·플랫폼·접근성 요구를 먼저 따릅니다.
 
@@ -15,7 +15,7 @@ Readiz 프로젝트에서 사용하는 에이전트 스킬을 공개하고 관�
 
 `readiz-web-crawling`은 공개 웹 수집기의 구현·복구에 사용합니다. 실패 시 오류 본문을 먼저 확인해 사용자에게 알리고, [오류별 대응표](skills/readiz-web-crawling/references/error-handling.md)에 따라 차단·인증·속도 제한·서버 오류 등을 구분합니다. 그 뒤 필요한 브라우저 헤더·세션 비교를 수행하고 수집·저장·AI 처리의 성공을 구분합니다. 포함된 진단 도구는 프로젝트의 Playwright로 로컬 응답만 열어 브라우저 정보를 비교하며 대상 사이트에 요청하지 않습니다.
 
-`readiz-disk-cleanup`은 소스·운영 데이터·작업 이력을 보존하면서 실제 여유 공간을 확보합니다. 사용 중인 파일과 설치·실행 버전이 다른 Chrome 복제본을 보호하고, 고유 산출물은 NAS 재읽기 검증을 거친 뒤 로컬 정리를 판단합니다. 정리 요청마다 적용하며 새 예약 작업을 만들지 않습니다.
+`readiz-disk-cleanup`은 소스·운영 데이터·작업 이력을 보존하면서 실제 여유 공간을 확보합니다. 사용 중인 파일과 설치·실행 버전이 다른 Chrome 복제본을 보호하고, 고유 산출물은 NAS 재읽기 검증을 거친 뒤 로컬 정리를 판단합니다. 작업트리는 진행 상태와 변경 자료의 독립 복원을 확인한 뒤 정리하고, 남길 동일 원본 이미지에는 안전 조건을 만족할 때만 APFS 공유를 적용합니다. 정리 요청마다 적용하며 새 예약 작업을 만들지 않습니다.
 
 ## 설치와 사용
 
