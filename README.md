@@ -4,6 +4,7 @@ Readiz 프로젝트에서 사용하는 에이전트 스킬을 공개하고 관�
 
 | 스킬 | 용도 |
 | --- | --- |
+| [readiz-video-analysis](skills/readiz-video-analysis/SKILL.md) | yt-dlp와 FFmpeg로 자막과 장면을 확보하고 원자료와 대조해 영상을 분석합니다. |
 | [readiz-web-ui](skills/readiz-web-ui/SKILL.md) | 작은 버튼·아이콘·표와 접힌 설명으로 콘텐츠 중심의 웹 UI를 설계하고 검증합니다. |
 | [readiz-web-crawling](skills/readiz-web-crawling/SKILL.md) | 실제 오류 문구·차단 여부부터 확인하고 오류별 대응과 본문 수집·저장을 검증합니다. |
 | [readiz-writing](skills/readiz-writing/SKILL.md) | 한국어 글의 문체·설명의 깊이·논증·퇴고를 관리합니다. 사이트 저장·게시와 독립적으로 사용합니다. |

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Readiz 영상 분석"
+  short_description: "자막과 실제 장면을 확보하고 원자료와 대조해 영상의 내용을 분석합니다."
+  default_prompt: "$readiz-video-analysis로 이 영상의 자막과 필요한 장면을 확보하고 핵심 내용과 근거를 분석해줘."
