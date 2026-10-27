@@ -25,8 +25,10 @@ Readiz 프로젝트에서 사용하는 에이전트 스킬과 참고 문서를 �
 
 | 문서 | 내용 |
 | --- | --- |
-| [Codex 모델과 에이전트 운영](docs/codex-agent-workflow.md) | Sol의 권장 역할 분담, Astra의 자율 판단, 모델과 Effort 선택, 역할별 TOML 예시와 검증 방법 |
+| [Codex 모델과 에이전트 운영](docs/codex-agent-workflow.md) | Sol의 위임 실행 기준, Astra의 자율 판단, 모델과 Effort 선택, 역할별 TOML 예시와 검증 방법 |
+| [Codex 에이전트 분담 패턴](docs/codex-multi-agent-patterns.md) | 작업 크기와 위험에 따른 위임, 역할별 작업 패킷, 공개 사례와 비교 방법 |
 | [Claude Code 공통 작업 지침](docs/claude-code-workflow.md) | Opus 설계와 Sonnet 구현, 사용자 공통 설정, 기존 세션 보존, Haiku 주기 호출 설계 |
+| [Claude Code Remote Control](docs/claude-remote-control.md) | 기존 세션과 새 세션 연결, 모바일 사용, 자동 연결 범위와 복귀 검증 |
 
 ## 설치와 사용
 
