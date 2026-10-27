@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude Session Handling"
+  short_description: "Claude 세션과 대화, 모델 선택을 보존하며 재시작과 복원을 검증합니다."
+  default_prompt: "$claude-session-handling을 사용해 기존 Claude 대화와 Fable 선택, 실행 중인 작업을 보존하면서 세션 상태를 점검하고 요청한 복원을 진행해줘."

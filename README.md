@@ -9,6 +9,7 @@ Readiz 프로젝트에서 사용하는 에이전트 스킬을 공개하고 관�
 | [readiz-web-crawling](skills/readiz-web-crawling/SKILL.md) | 실제 오류 문구·차단 여부부터 확인하고 오류별 대응과 본문 수집·저장을 검증합니다. |
 | [readiz-writing](skills/readiz-writing/SKILL.md) | 한국어 글의 문체·설명의 깊이·논증·퇴고를 관리합니다. 사이트 저장·게시와 독립적으로 사용합니다. |
 | [readiz-disk-cleanup](skills/readiz-disk-cleanup/SKILL.md) | Mac 디스크를 조사하고 캐시를 정리하며, 비활성 산출물과 작업트리를 NAS 검증 보관 후 정리합니다. |
+| [claude-session-handling](skills/claude-session-handling/SKILL.md) | Claude Code 세션과 대화, Fable 등 모델 선택을 보존하며 재시작과 복원, 서브에이전트와 구독 자동 호출을 점검합니다. |
 
 `readiz-web-ui`는 Readiz가 선호하는 디자인 기준입니다. 버튼 크기와 색상 등은 기본값이며, 사용자가 지정한 브랜드·플랫폼·접근성 요구를 먼저 따릅니다.
 
