@@ -24,7 +24,7 @@ python3 -B scripts/inspect_sessions.py --project /path/to/workspace
 
 - **재시작과 복원:** [세션 복구 절차](references/session-recovery.md)를 읽는다. 기존 ID와 대화 기록을 먼저 확보하고 실행 중인 장시간 작업을 보호한다.
 - **공통 모델과 서브에이전트:** 아래 반영 기준을 적용한다. 기존 파일은 백업 후 병합하고 프로젝트별 규칙과 명시적인 모델 선택을 보존한다.
-- **Haiku 핑과 5시간 창:** [구독 자동 호출](references/quota-automation.md)을 읽는다. 모델 호출과 예약 활성화는 요청된 범위에서만 수행한다.
+- **Haiku 핑과 5시간 창:** [구독 자동 호출](references/quota-automation.md)을 읽는다. 로컬 실행, 서버 조회, 실제 모델 호출 시각을 구분하고 실제 호출 전에는 창 전이가 검증됐다고 단정하지 않는다.
 
 ## 모델과 서브에이전트 반영
 
