@@ -1,0 +1,9 @@
+node_modules/
+*.sqlite
+*.sqlite-*
+data/
+imports/
+files/
+.cache/
+build/
+!README.md

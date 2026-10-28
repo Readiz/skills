@@ -1,0 +1,14 @@
+[project]
+name = "personal-inbox-gateway"
+version = "0.1.0"
+description = "Owner-only GitHub OAuth gateway for the Personal Inbox MCP"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastmcp==4.1.4",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2==2.16.0",
+]

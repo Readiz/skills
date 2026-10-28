@@ -1,0 +1,4 @@
+interface:
+  display_name: "Personal Inbox"
+  short_description: "Continue handoffs through a personal Inbox"
+  default_prompt: "Use $personal-inbox to find the saved handoff, read its full context, and continue within the current request."

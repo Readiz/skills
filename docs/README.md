@@ -8,6 +8,7 @@ Codex와 Claude Code를 사용할 때 참고할 역할 분담, 공통 지침과 
 | [Codex 에이전트 분담 패턴](codex-multi-agent-patterns.md) | 작업 크기와 위험에 따른 위임 예시, 역할 작업 패킷, 반복 비교와 공개 사례 |
 | [Claude Code 공통 작업 지침](claude-code-workflow.md) | Opus와 Sonnet 역할 분담, 여러 프로젝트에서의 설정 공유, 세션 보존과 Haiku 호출 설계 |
 | [Claude Code Remote Control](claude-remote-control.md) | 기존 세션과 새 세션 연결, 모바일 사용, 설정 범위와 복귀 검증 |
+| [개인 Inbox로 이어가기](personal-inbox.md) | 원격 MCP 게이트웨이와 GitHub OAuth 설정, Claude 웹에서 Codex로 넘기는 작업 인계 |
 
 ## 활용 방법
 
