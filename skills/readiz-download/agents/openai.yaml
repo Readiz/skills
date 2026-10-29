@@ -1,0 +1,4 @@
+interface:
+  display_name: "Readiz Download"
+  short_description: "공개 파일 다운로드와 HTTP 실패 원인 진단 및 결과 확인"
+  default_prompt: "Use $readiz-download to download this public file and report any failure safely."

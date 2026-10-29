@@ -7,6 +7,7 @@ Readiz 프로젝트에서 사용하는 에이전트 스킬과 참고 문서를 �
 | [readiz-video-analysis](skills/readiz-video-analysis/SKILL.md) | yt-dlp와 FFmpeg로 자막과 장면을 확보하고 원자료와 대조해 영상을 분석합니다. |
 | [readiz-web-ui](skills/readiz-web-ui/SKILL.md) | 작은 버튼·아이콘·표와 접힌 설명으로 콘텐츠 중심의 웹 UI를 설계하고 검증합니다. |
 | [readiz-web-crawling](skills/readiz-web-crawling/SKILL.md) | 실제 오류 문구·차단 여부부터 확인하고 오류별 대응과 본문 수집·저장을 검증합니다. |
+| [readiz-download](skills/readiz-download/SKILL.md) | 공개 HTTP(S) 일반 파일을 진단 정보를 보존해 다운로드하고 결과를 검증합니다. |
 | [readiz-writing](skills/readiz-writing/SKILL.md) | 한국어 글의 문체·설명의 깊이·논증·퇴고를 관리합니다. 사이트 저장·게시와 독립적으로 사용합니다. |
 | [readiz-disk-cleanup](skills/readiz-disk-cleanup/SKILL.md) | Mac 디스크를 조사하고 캐시를 정리하며, 비활성 산출물과 작업트리를 NAS 검증 보관 후 정리합니다. |
 | [claude-session-handling](skills/claude-session-handling/SKILL.md) | Claude Code 세션과 대화, Fable 등 모델 선택을 보존하며 재시작과 복원, 서브에이전트와 구독 자동 호출을 점검합니다. |
@@ -17,6 +18,8 @@ Readiz 프로젝트에서 사용하는 에이전트 스킬과 참고 문서를 �
 `readiz-writing`은 Readiz의 원작성 글에서 이어 온 글쓰기 기준입니다. 일반 문체와 설명 원칙은 본문에, 해설·분석의 근거 검증과 투자 글의 판단 기준은 조건부 참고 문서에 둡니다. 사이트 운영은 기존 `readiz-blog`가 담당하며, 글쓰기 스킬을 사용할 때 블로그 저장이나 위키 게시를 자동으로 시작하지 않습니다.
 
 `readiz-web-crawling`은 공개 웹 수집기의 구현·복구에 사용합니다. 실패 시 오류 본문을 먼저 확인해 사용자에게 알리고, [오류별 대응표](skills/readiz-web-crawling/references/error-handling.md)에 따라 차단·인증·속도 제한·서버 오류 등을 구분합니다. 그 뒤 필요한 브라우저 헤더·세션 비교를 수행하고 수집·저장·AI 처리의 성공을 구분합니다. 포함된 진단 도구는 프로젝트의 Playwright로 로컬 응답만 열어 브라우저 정보를 비교하며 대상 사이트에 요청하지 않습니다.
+
+`readiz-download`는 공개 HTTP(S)에서 PDF·CSV·Office·압축 파일을 받는 작업에 사용합니다. 실패 본문을 제한·마스킹해 receipt에 남기고 자동 재시도 없이 HTML 가짜 파일, 절단, 용량 제한과 HTTP 오류를 구분합니다. 영상은 `readiz-video-analysis`로 연결합니다.
 
 `readiz-disk-cleanup`은 소스·운영 데이터·작업 이력을 보존하면서 실제 여유 공간을 확보합니다. 사용 중인 파일과 설치·실행 버전이 다른 Chrome 복제본을 보호하고, 고유 산출물은 NAS 재읽기 검증을 거친 뒤 로컬 정리를 판단합니다. 작업트리는 진행 상태와 변경 자료의 독립 복원을 확인한 뒤 정리하고, 남길 동일 원본 이미지에는 안전 조건을 만족할 때만 APFS 공유를 적용합니다. 정리 요청마다 적용하며 새 예약 작업을 만들지 않습니다.
 
@@ -40,6 +43,7 @@ Codex에서 다음과 같이 요청할 수 있습니다.
 $skill-installer로 https://github.com/Readiz/skills/tree/main/skills/readiz-web-ui 를 설치해줘.
 $skill-installer로 https://github.com/Readiz/skills/tree/main/skills/readiz-writing 를 설치해줘.
 $skill-installer로 https://github.com/Readiz/skills/tree/main/skills/readiz-web-crawling 를 설치해줘.
+$skill-installer로 https://github.com/Readiz/skills/tree/main/skills/readiz-download 를 설치해줘.
 $skill-installer로 https://github.com/Readiz/skills/tree/main/skills/readiz-disk-cleanup 를 설치해줘.
 ```
 
@@ -49,6 +53,7 @@ $skill-installer로 https://github.com/Readiz/skills/tree/main/skills/readiz-dis
 $readiz-web-ui를 사용해 이 대시보드의 버튼과 필터를 컴팩트하게 정리해줘.
 $readiz-writing을 사용해 이 글의 문체와 논리 흐름을 다듬어줘.
 $readiz-web-crawling을 사용해 이 수집기의 403 원인을 확인하고 수정해줘.
+$readiz-download를 사용해 이 공개 PDF를 다운로드하고 실패하면 원인을 알려줘.
 $readiz-disk-cleanup을 사용해 디스크를 정리하고 확보한 공간을 알려줘.
 ```
 
@@ -67,6 +72,7 @@ mkdir -p "$HOME/.agents/skills"
 ln -s "$(pwd)/skills/readiz-web-ui" "$HOME/.agents/skills/readiz-web-ui"
 ln -s "$(pwd)/skills/readiz-writing" "$HOME/.agents/skills/readiz-writing"
 ln -s "$(pwd)/skills/readiz-web-crawling" "$HOME/.agents/skills/readiz-web-crawling"
+ln -s "$(pwd)/skills/readiz-download" "$HOME/.agents/skills/readiz-download"
 ln -s "$(pwd)/skills/readiz-disk-cleanup" "$HOME/.agents/skills/readiz-disk-cleanup"
 ```
 
