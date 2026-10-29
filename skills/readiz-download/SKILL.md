@@ -5,6 +5,14 @@ description: 공개 HTTP(S)에서 PDF·CSV·Office·압축 파일 등 일반 파
 
 # 파일 다운로드
 
+## 기존 작업과 연결
+
+- 글·위키의 근거 PDF, CSV, Office 원본은 이 스킬로 확보한 뒤 원래 글 작업으로 돌아간다. 자료를 위키에 보관할 때는 readiz-research-wiki의 기존 source_archive에 이미 받은 파일을 file 입력으로 전달하거나 연결된 API 흐름을 사용한다. 검증된 기존 파일과 receipt가 있으면 다시 받지 않는다.
+- 영상과 자막은 readiz-video-analysis 및 yt-dlp, 웹 수집기의 구현과 수집 오류 진단은 readiz-web-crawling으로 연결한다. Readiz 글에 첨부할 이미지는 readiz-blog의 기존 draft/API 첨부 흐름을 쓰고, 메일·Inbox 첨부는 기존 인증 connector 경로를 사용한다.
+- 파일의 내용 읽기·추출을 요청받았으면 설치된 pdf, spreadsheets, documents 스킬을 목록에서 찾아 연결한다.
+
+다운로드 완료만으로 원래 요청을 글 작성이나 게시로 넓히지 않는다. 기존 작업의 요청과 권한 범위로 돌아간다.
+
 공식 API나 연결된 서비스 도구가 있으면 직접 HTTP 요청보다 먼저 사용 가능성을 확인한다. 공개 HTTP(S) 파일은 `scripts/download.py`를 사용한다. 이 도구는 자동 재시도하지 않으며 호출 결과 `status == "succeeded"`일 때만 파일을 후속 단계에 넘긴다.
 
 요청 전 목적지와 저장 여유 공간을 확인한다. 대용량은 프로젝트의 실제 연결된 NAS 작업 공간에 두고, 작은 파일은 프로젝트 지침에 맞는 용량 제한된 로컬 작업 공간을 사용할 수 있다. NAS 경로는 실제 마운트·쓰기 권한·여유 공간을 확인하고 가능한 경우 `guard`로 쓰기 전·중·확정 직전에 재검증한다. API와 CLI 모두 `/Volumes` 대상이 실제 마운트 아래인지 확인하며, 마운트가 없으면 로컬 대체 폴더를 만들지 않는다. 공개 게시와 비공개 저장은 분리한다.
