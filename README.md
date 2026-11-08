@@ -10,6 +10,7 @@ Readiz 프로젝트에서 사용하는 에이전트 스킬과 참고 문서를 �
 | [readiz-download](skills/readiz-download/SKILL.md) | 공개 HTTP(S) 일반 파일을 진단 정보를 보존해 다운로드하고 결과를 검증합니다. |
 | [readiz-writing](skills/readiz-writing/SKILL.md) | 한국어 글의 문체·설명의 깊이·논증·퇴고를 관리합니다. 사이트 저장·게시와 독립적으로 사용합니다. |
 | [readiz-disk-cleanup](skills/readiz-disk-cleanup/SKILL.md) | Mac 디스크를 조사하고 캐시를 정리하며, 비활성 산출물과 작업트리를 NAS 검증 보관 후 정리합니다. |
+| [readiz-nas](skills/readiz-nas/SKILL.md) | 비공개 프로필과 기존 승인 실행기를 통해 NAS 파일을 제한적으로 읽고 검증합니다. |
 | [claude-session-handling](skills/claude-session-handling/SKILL.md) | Claude Code 세션과 대화, Fable 등 모델 선택을 보존하며 재시작과 복원, 서브에이전트와 구독 자동 호출을 점검합니다. |
 | [personal-inbox](skills/personal-inbox/SKILL.md) | 연결된 개인 Inbox에서 작업 인계를 찾고 읽은 뒤 결과를 저장합니다. |
 
@@ -45,6 +46,7 @@ $skill-installer로 https://github.com/Readiz/skills/tree/main/skills/readiz-wri
 $skill-installer로 https://github.com/Readiz/skills/tree/main/skills/readiz-web-crawling 를 설치해줘.
 $skill-installer로 https://github.com/Readiz/skills/tree/main/skills/readiz-download 를 설치해줘.
 $skill-installer로 https://github.com/Readiz/skills/tree/main/skills/readiz-disk-cleanup 를 설치해줘.
+$skill-installer로 https://github.com/Readiz/skills/tree/main/skills/readiz-nas 를 설치해줘.
 ```
 
 필요한 스킬을 선택해 설치합니다. 설치 후 다음 요청부터 스킬 이름으로 명시적으로 사용할 수 있으며, 각 스킬의 설명에 맞는 작업에도 자동으로 선택될 수 있습니다.
@@ -55,6 +57,7 @@ $readiz-writing을 사용해 이 글의 문체와 논리 흐름을 다듬어줘.
 $readiz-web-crawling을 사용해 이 수집기의 403 원인을 확인하고 수정해줘.
 $readiz-download를 사용해 이 공개 PDF를 다운로드하고 실패하면 원인을 알려줘.
 $readiz-disk-cleanup을 사용해 디스크를 정리하고 확보한 공간을 알려줘.
+$readiz-nas를 사용해 설정된 NAS 작업공간의 파일을 확인하고 검증해줘.
 ```
 
 설치 도구는 같은 이름의 기존 폴더를 덮어쓰지 않습니다. 이미 설치했다면 변경 내용을 비교하고 보존한 뒤 갱신합니다.
@@ -74,6 +77,7 @@ ln -s "$(pwd)/skills/readiz-writing" "$HOME/.agents/skills/readiz-writing"
 ln -s "$(pwd)/skills/readiz-web-crawling" "$HOME/.agents/skills/readiz-web-crawling"
 ln -s "$(pwd)/skills/readiz-download" "$HOME/.agents/skills/readiz-download"
 ln -s "$(pwd)/skills/readiz-disk-cleanup" "$HOME/.agents/skills/readiz-disk-cleanup"
+ln -s "$(pwd)/skills/readiz-nas" "$HOME/.agents/skills/readiz-nas"
 ```
 
 같은 이름의 폴더가 이미 있으면 먼저 원본과 비교하고, 기존 폴더를 스킬 검색 경로 밖에 보관한 뒤 연결합니다. 기존 환경이 `~/.codex/skills` 또는 별도로 설정한 경로에서 스킬을 읽고 있다면 그 경로를 유지합니다. 여러 검색 경로에 같은 스킬을 중복 설치하지 않습니다.
