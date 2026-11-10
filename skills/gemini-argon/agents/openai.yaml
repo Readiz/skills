@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gemini Argon"
+  short_description: "Antigravity CLI로 Gemini 4 Argon에 질문·검토·초안을 맡김"
+  default_prompt: "$gemini-argon을 사용해 이 초안을 Gemini 4 Argon에게 교차 검토 받아줘."

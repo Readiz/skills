@@ -13,6 +13,7 @@ Readiz 프로젝트에서 사용하는 에이전트 스킬과 참고 문서를 �
 | [readiz-nas](skills/readiz-nas/SKILL.md) | 비공개 프로필과 기존 승인 실행기를 통해 NAS 파일을 제한적으로 읽고 검증합니다. |
 | [claude-session-handling](skills/claude-session-handling/SKILL.md) | Claude Code 세션과 대화, Fable 등 모델 선택을 보존하며 재시작과 복원, 서브에이전트와 구독 자동 호출을 점검합니다. |
 | [personal-inbox](skills/personal-inbox/SKILL.md) | 연결된 개인 Inbox에서 작업 인계를 찾고 읽은 뒤 결과를 저장합니다. |
+| [gemini-argon](skills/gemini-argon/SKILL.md) | Antigravity CLI의 기존 로그인으로 Gemini 4 Argon에 질문·교차 검토·초안을 맡기고 결과를 받아옵니다. |
 
 `readiz-web-ui`는 Readiz가 선호하는 디자인 기준입니다. 버튼 크기와 색상 등은 기본값이며, 사용자가 지정한 브랜드·플랫폼·접근성 요구를 먼저 따릅니다.
 
