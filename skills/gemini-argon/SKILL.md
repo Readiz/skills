@@ -1,6 +1,6 @@
 ---
 name: gemini-argon
-description: "기존 Gemini 계정으로 Gemini 4 Argon에 검토·분석·초안 작성을 맡기고 결과를 받아옵니다. 로컬 파일(시나리오·원고·문서)은 Antigravity CLI(agy) 모드로 빠르게 보내고, Google Drive 자료를 읽혀야 하는 일은 로그인된 브라우저의 Gemini 웹 작업 모드로 보냅니다. 사용자가 Gemini·Argon에게 검토나 작업을 맡기라고 할 때 사용합니다. 유튜브 영상 분석은 기존 영상 분석·블로그 스킬을 따릅니다."
+description: "기존 Gemini 계정으로 Gemini 4 Argon에 검토·분석·초안 작성을 맡기고 결과를 받아옵니다. 저장소 폴더·로컬 파일(시나리오·원고·문서)은 Antigravity CLI(agy) 모드로 보내 Argon이 직접 탐색·검토하게 하고, Google Drive 자료를 읽혀야 하는 일은 로그인된 브라우저의 Gemini 웹 작업 모드로 보냅니다. 사용자가 Gemini·Argon에게 검토나 작업을 맡기라고 할 때 사용합니다. 유튜브 영상 분석은 기존 영상 분석·블로그 스킬을 따릅니다."
 license: MIT
 metadata:
   source: "https://github.com/Readiz/skills/tree/main/skills/gemini-argon"
@@ -14,11 +14,13 @@ metadata:
 
 | 모드 | 경로 | 쓰는 경우 |
 | --- | --- | --- |
-| **CLI** (기본) | Antigravity CLI `agy` 비대화형 | 시나리오·원고·문서 등 **로컬 파일**을 넘겨 검토·초안·질문. 브라우저 없이 수십 초 안팎으로 끝난다. |
-| **웹 작업** | 브라우저 Gemini 웹 `작업 모드 → 4 Argon` | **Google Drive 자료**를 Argon이 직접 찾아 읽어야 할 때, 파일이 많거나 Drive에만 있을 때 |
+| **CLI 폴더** (시나리오·저장소 검토 기본) | `ask.sh -d <폴더>` | git 저장소의 문서를 Argon이 직접 탐색·검색하며 검토. 커밋된 판본(HEAD) 사본을 읽어 인용이 `상대경로:줄`로 나온다. |
+| **CLI 파일** | `ask.sh -f <파일>...` | 정해진 파일 몇 개만 읽혀 묻거나 초안을 받을 때. |
+| **웹 작업** | 브라우저 Gemini 웹 `작업 모드 → 4 Argon` | **Google Drive에만 있는 자료**(`.gdoc` 외부 검토 문서, Drive 이미지·PDF)를 읽혀야 할 때, 결과 대화를 Gemini 앱에서 이어 보고 싶을 때, CLI 사용량이 소진됐을 때의 예비 경로. |
 
-- 보낼 자료가 로컬에 있으면 CLI 모드를 쓴다. Drive 동기화·최신 버전 반영을 확인할 필요가 없다.
-- 사용자가 "Drive에 있는", "작업 모드로" 등 웹 경로를 지정하거나, CLI가 실패했는데 웹으로도 같은 일을 할 수 있으면 웹 작업 모드를 쓴다. 한 모드가 실패해 다른 모드로 바꿨으면 보고에 적는다.
+- 원본이 git 저장소에 있으면 CLI를 쓴다. 대조할 판본과 Argon이 읽은 판본이 같고, Drive 동기화 지연이 없다.
+- 폴더 모드는 HEAD 기준이다. 검토할 수정은 먼저 커밋한다(미커밋 변경이 있으면 래퍼가 경고한다).
+- 한 모드가 실패해 다른 모드로 바꿨으면 보고에 적는다.
 
 ## CLI 모드
 
@@ -48,6 +50,16 @@ bash <스킬 디렉터리>/scripts/ask.sh -p "질문"
 - 응답 대기 `-t`: 기본 600초. Bash 도구의 timeout은 그보다 길게 준다. 짧은 요청은 20~30초 걸렸다.
 - 호출마다 새 대화다. 이전 맥락이 필요하면 프롬프트나 파일에 다시 넣는다.
 - 같은 이름의 입력 파일 둘은 받지 않는다. 응답 속 `file://` 링크는 이미 지워진 임시 폴더를 가리키므로 파일 이름만 참고한다.
+
+폴더 모드(`-d`):
+
+- git 저장소 안의 폴더면 `git archive HEAD`로 그 경로만 풀어 저장소와 같은 상대 경로로 둔다. git이 아니면 `.git`·`node_modules`를 빼고 복사한다. 사본 상한은 200MB. 원본 폴더는 건드리지 않는다(agy에는 쓰기 도구도 있어 원본을 직접 주지 않는다).
+- 래퍼가 "서브에이전트·브라우저 없이 `list_dir`·`find_by_name`·`grep_search`·`view_file`로 직접 탐색하고, 인용에 상대 경로와 줄 번호를 붙여라"를 덧붙인다. 이 지시가 없으면 탐색을 서브에이전트에 넘기고 결과 전에 끝낸 적이 있다.
+- 범위가 넓으면 읽는 양이 커진다. 장 범위·주제를 프롬프트에서 좁히고, 결과 개수 상한을 둔다. `-f`를 함께 주면 `_argon_inputs/`로 들어간다.
+
+```sh
+bash <스킬 디렉터리>/scripts/ask.sh -e high -d ~/workspace/readiz/game-defense/docs/requirements -P /tmp/request.md
+```
 
 계정 여러 개 쓰기:
 

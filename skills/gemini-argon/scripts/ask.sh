@@ -9,11 +9,14 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 usage() {
   cat >&2 <<'EOF'
-사용법: ask.sh [-e low|medium|high] [-t 초] [-a 계정] [-f 파일]... [-k] (-p "프롬프트" | -P 프롬프트파일)
+사용법: ask.sh [-e low|medium|high] [-t 초] [-a 계정] [-d 폴더] [-f 파일]... [-k] (-p "프롬프트" | -P 프롬프트파일)
   -e  Argon 추론 단계 (기본 medium)
   -t  응답 제한 시간(초, 기본 600)
   -a  이 계정만 사용 (main 또는 accounts.sh로 만든 프로필). 생략하면 자동 선택:
       계정 순서대로 Argon 남은 사용량이 있는 계정을 쓰고, 소진되면 다음 계정으로 넘어간다.
+  -d  읽기 전용 폴더 모드. 폴더를 사본(snap/)으로 떠서 그 안을 모델이 직접 탐색하게 한다.
+      git 저장소면 HEAD 기준 사본(미커밋 변경은 제외, 경고), 아니면 현재 파일 기준(.git·node_modules 제외).
+      사본 상한 200MB. -f 파일은 사본 안 _argon_inputs/ 로 들어간다.
   -f  모델이 읽을 파일. 여러 번 지정 가능. 임시 작업 폴더에 같은 이름으로 복사된다.
   -p  프롬프트 문자열
   -P  프롬프트 파일. 긴 지시는 이쪽을 쓴다.
@@ -24,13 +27,14 @@ EOF
   exit 2
 }
 
-effort=medium timeout=600 prompt="" prompt_file="" keep=0 account=""
+effort=medium timeout=600 prompt="" prompt_file="" keep=0 account="" dir_in=""
 files=()
-while getopts "e:t:a:f:p:P:kh" opt; do
+while getopts "e:t:a:d:f:p:P:kh" opt; do
   case "$opt" in
     e) effort=$OPTARG ;;
     t) timeout=$OPTARG ;;
     a) account=$OPTARG ;;
+    d) dir_in=$OPTARG ;;
     f) files+=("$OPTARG") ;;
     p) prompt=$OPTARG ;;
     P) prompt_file=$OPTARG ;;
@@ -52,6 +56,12 @@ if [[ -n "$account" ]]; then
   ga_has_login "$account" || { echo "계정 '$account'는 로그인되지 않았습니다. 'accounts.sh list'로 로그인 명령을 확인하세요." >&2; exit 2; }
 fi
 
+# -d 폴더는 작업 폴더를 만들기 전에 확인한다.
+if [[ -n "$dir_in" ]]; then
+  [[ -d "$dir_in" ]] || { echo "폴더 없음: $dir_in" >&2; exit 2; }
+  dir_in=$(cd "$dir_in" && pwd -P)
+fi
+
 work=$(mktemp -d "${TMPDIR:-/tmp}/gemini-argon.XXXXXX")
 chmod 700 "$work"
 if [[ $keep -eq 1 ]]; then
@@ -60,22 +70,81 @@ else
   trap 'rm -rf "$work"' EXIT
 fi
 
+# agy의 작업 폴더. 폴더 모드에서는 snap 안(저장소와 같은 상대 경로), 아니면 work.
+cwd="$work"
+mode_dir=0
+if [[ -n "$dir_in" ]]; then
+  mode_dir=1
+  snap="$work/snap"
+  mkdir "$snap"
+  top=""
+  top=$(git -C "$dir_in" rev-parse --show-toplevel 2>/dev/null) || top=""
+  if [[ -n "$top" ]]; then
+    prefix=$(git -C "$dir_in" rev-parse --show-prefix)
+    short=$(git -C "$top" rev-parse --short HEAD 2>/dev/null) || { echo "커밋이 없는 저장소라 사본을 만들 수 없습니다: $dir_in" >&2; exit 2; }
+    if [[ -n "$prefix" ]]; then
+      git -C "$top" archive HEAD -- "$prefix" | tar -x -C "$snap" || { echo "git archive 실패(HEAD에 없는 경로?): $prefix" >&2; exit 2; }
+    else
+      git -C "$top" archive HEAD | tar -x -C "$snap" || { echo "git archive 실패" >&2; exit 2; }
+    fi
+    cwd="$snap/${prefix%/}"
+    [[ -d "$cwd" ]] || { echo "HEAD에 없는 경로라 사본이 비어 있습니다: ${prefix:-.}" >&2; exit 2; }
+    ndirty=0
+    if [[ -n "$prefix" ]]; then
+      ndirty=$(git -C "$top" status --porcelain -- "$prefix" | wc -l | tr -d ' ')
+    else
+      ndirty=$(git -C "$top" status --porcelain | wc -l | tr -d ' ')
+    fi
+    if [[ "$ndirty" -gt 0 ]]; then
+      echo "[gemini-argon] 주의: ${ndirty}개 파일의 미커밋 변경은 사본에 포함되지 않습니다(HEAD $short 기준)." >&2
+    fi
+    echo "[gemini-argon] 폴더 사본: $dir_in @ $short" >&2
+  else
+    if command -v rsync >/dev/null; then
+      rsync -a --exclude .git --exclude node_modules "$dir_in/" "$snap/"
+    else
+      cp -R "$dir_in/." "$snap/"
+      find "$snap" \( -name .git -o -name node_modules \) -prune -exec rm -rf {} + 2>/dev/null || true
+    fi
+    cwd="$snap"
+    echo "[gemini-argon] 폴더 사본: $dir_in (git 아님, 현재 파일 기준)" >&2
+  fi
+  snap_kb=$(du -sk "$snap" | awk '{print $1}')
+  if [[ "$snap_kb" -gt 204800 ]]; then
+    echo "폴더 사본이 상한(200MB)을 넘습니다: ${snap_kb}KB. 더 좁은 폴더를 지정하세요." >&2
+    exit 2
+  fi
+fi
+
+# 입력 파일: 일반 모드는 작업 폴더, 폴더 모드는 cwd 아래 _argon_inputs/ 로 복사한다.
+inputs_dir="$cwd"
+inputs_rel=""
+if [[ $mode_dir -eq 1 && ${#files[@]} -gt 0 ]]; then
+  inputs_dir="$cwd/_argon_inputs"
+  inputs_rel="_argon_inputs/"
+  mkdir -p "$inputs_dir"
+fi
+listing=""
 for f in ${files[@]+"${files[@]}"}; do
   [[ -f "$f" ]] || { echo "파일 없음: $f" >&2; exit 2; }
-  dest="$work/$(basename "$f")"
+  dest="$inputs_dir/$(basename "$f")"
   [[ ! -e "$dest" ]] || { echo "같은 이름의 입력 파일이 둘 이상입니다: $(basename "$f")" >&2; exit 2; }
   cp "$f" "$dest"
+  listing="$listing, $inputs_rel$(basename "$f")"
 done
 
 # 명령 실행(ls 등)은 headless에서 거부되므로 읽을 파일 이름을 프롬프트에 직접 알려 준다.
-listing=""
-for f in ${files[@]+"${files[@]}"}; do listing="$listing, $(basename "$f")"; done
-guide="파일을 만들거나 수정하지 말고, 계획서·승인 요청 없이 바로 답만 출력하라. 명령 실행은 허용되지 않으니 파일은 읽기 도구로 직접 열어라."
-[[ -z "$listing" ]] || guide="$guide 작업 폴더의 입력 파일: ${listing#, }."
+if [[ $mode_dir -eq 1 ]]; then
+  guide="파일을 만들거나 수정하지 말고, 계획서·승인 요청 없이 이번 응답 안에서 답을 끝까지 출력하라. 서브에이전트·브라우저를 쓰지 말고 네가 직접 list_dir·find_by_name·grep_search·view_file 도구로 이 폴더를 탐색하라. 명령 실행은 허용되지 않는다. 인용에는 이 폴더 기준 상대 경로와 줄 번호를 붙여라."
+  [[ -z "$listing" ]] || guide="$guide 추가 입력 파일: ${listing#, }."
+else
+  guide="파일을 만들거나 수정하지 말고, 계획서·승인 요청 없이 바로 답만 출력하라. 서브에이전트·브라우저를 쓰지 말고, 명령 실행은 허용되지 않으니 파일은 읽기 도구로 직접 열어라."
+  [[ -z "$listing" ]] || guide="$guide 작업 폴더의 입력 파일: ${listing#, }."
+fi
 
 if [[ -n "$prompt_file" ]]; then
   [[ -f "$prompt_file" ]] || { echo "프롬프트 파일 없음: $prompt_file" >&2; exit 2; }
-  cp "$prompt_file" "$work/.prompt.md"
+  cp "$prompt_file" "$cwd/.prompt.md"
   prompt="작업 폴더의 .prompt.md 지시를 따르라. $guide"
 else
   prompt="$prompt"$'\n\n'"$guide"
@@ -88,7 +157,7 @@ rc=0
 # 한 계정으로 호출한다. 결과는 $out, $work/.stderr, 전역 rc에 남는다.
 run_agy() {
   set +e
-  (cd "$work" && HOME="$1" agy -p "$prompt" \
+  (cd "$cwd" && HOME="$1" agy -p "$prompt" \
     --model "$model" \
     --mode plan --sandbox \
     --output-format stream-json \
@@ -99,11 +168,26 @@ run_agy() {
 
 # 결과 판정과 출력. 종료 코드: 0 성공, 1 일반 실패, 3 사용량 소진으로 판정, 6 비정상 종료지만 본문 보존
 report() {
-  python3 -I - "$out" "$work/.stderr" "$rc" "$model" "$1" <<'PY'
-import json, re, sys
+  python3 -I - "$out" "$work/.stderr" "$rc" "$model" "$1" "$cwd" "$work" <<'PY'
+import json, os, re, sys
 out, err, rc, model, acct = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4], sys.argv[5]
+cwd, work = sys.argv[6], sys.argv[7]
 raw = open(out, encoding="utf-8", errors="replace").read()
 errtxt = open(err, errors="replace").read()
+
+# 본문에 섞인 file://임시경로/ 접두를 지워 상대 경로만 남긴다(/var 와 /private/var 모두).
+def clean(t):
+    ps = set()
+    for p in (cwd, work):
+        for q in (p, os.path.realpath(p)):
+            ps.add(q)
+            if q.startswith("/private/"):
+                ps.add(q[len("/private"):])
+            else:
+                ps.add("/private" + q)
+    for q in sorted(ps, key=len, reverse=True):
+        t = t.replace("file://" + q.rstrip("/") + "/", "")
+    return t
 
 # stream-json: 한 줄에 JSON 하나. 결과 이벤트(d)와 init, 단계별 텍스트를 모은다.
 d = None
@@ -166,7 +250,7 @@ if isinstance(d, dict) and d.get("status") == "SUCCESS" and rc == 0:
     if not text.strip():
         sys.stderr.write(f"[gemini-argon] account={acct} 실패: 성공으로 끝났지만 답이 비어 있습니다. 대화 {d.get('conversation_id')}에서 도구 거부 등을 확인하세요.\n")
         sys.exit(1)
-    print(text)
+    print(clean(text))
     sys.exit(0)
 
 # 비SUCCESS: 소진 판정은 error·stderr·비JSON 원문에만 적용한다(본문 단어 오판 방지).
@@ -182,7 +266,7 @@ body = full if full.strip() else resp
 if body.strip():
     reason = (errfield.strip().splitlines() or [""])[0] or (f"status={d.get('status')}" if isinstance(d, dict) else f"결과 이벤트 없음, rc={rc}")
     sys.stderr.write(f"[gemini-argon] 경고: 응답이 정상 종료되지 않았습니다(사유: {reason}). 본문은 보존해 출력합니다.\n")
-    print(body)
+    print(clean(body))
     sys.exit(6)
 
 tail = "\n".join(nonjson)[-2000:] or raw[-2000:]
