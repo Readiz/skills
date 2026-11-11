@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # gemini-argon 계정 공통 로직 (source 전용). ask.sh, accounts.sh가 함께 쓴다.
 # 계정 모델: main = 실제 $HOME 그대로, 그 외 = $GEMINI_ARGON_HOME/profiles/<이름>/ 을 HOME으로 쓴다.
-# 토큰 파일은 존재 여부만 확인하고 내용은 읽거나 출력하지 않는다.
+# 로그인 정보(파일·키체인)는 읽지 않는다. 로그인 여부는 agy models 응답으로만 판단한다.
 
 GA_REAL_HOME=${GA_REAL_HOME:-$HOME}
 GA_ROOT=${GEMINI_ARGON_HOME:-$GA_REAL_HOME/.local/share/gemini-argon}
@@ -56,17 +56,28 @@ ga_account_order() {
   fi
 }
 
-# 로그인 흔적(토큰 파일 존재)만 확인. 내용은 읽지 않는다.
+# 로그인 여부: 그 HOME으로 `agy models`를 불러 Argon 모델이 보이면 로그인된 것으로 본다.
+# 토큰은 파일에서 키체인으로 옮겨질 수 있어 파일 존재로 판단하지 않는다. 사용량은 쓰지 않는다.
 ga_has_login() {
   local home
   home=$(ga_home_for "$1")
-  [[ -s "$home/.gemini/antigravity-cli/antigravity-oauth-token" ]]
+  [[ -d "$home" ]] || return 1
+  GA_LOGIN_HOME=$home python3 -I - <<'PY2'
+import os, subprocess, sys
+env = dict(os.environ, HOME=os.environ["GA_LOGIN_HOME"])
+try:
+    p = subprocess.run(["agy", "models"], env=env, capture_output=True, text=True,
+                       timeout=45, stdin=subprocess.DEVNULL, cwd="/")
+except Exception:
+    sys.exit(1)
+sys.exit(0 if "gemini-4-argon" in (p.stdout or "") else 1)
+PY2
 }
 
 # 계정별 /usage 조회. 한 줄 TSV 출력:
 #   state \t argon_fraction \t argon_reset \t g5h_fraction \t g5h_reset
 # state: ok | nologin | error  (nologin은 토큰 없음/인증 오류, error는 네트워크 등 그 외 실패)
-# 로그인 안 된 HOME에서 agy가 인증 대기로 멈추지 않도록 토큰 파일이 없으면 agy를 부르지 않는다.
+# 로그인 안 된 HOME에서 /usage가 인증 대기로 멈추지 않도록 먼저 agy models로 로그인을 확인한다.
 ga_usage() {
   local name=$1 home work
   if ! ga_has_login "$name"; then

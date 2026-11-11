@@ -18,7 +18,8 @@ usage() {
   -p  프롬프트 문자열
   -P  프롬프트 파일. 긴 지시는 이쪽을 쓴다.
   -k  끝난 뒤 임시 작업 폴더를 지우지 않고 경로를 stderr에 남긴다.
-종료 코드: 0 성공, 1 일반 실패, 2 사용법/입력 오류, 4 모든 계정 소진, 5 로그인된 계정 없음
+종료 코드: 0 성공, 1 일반 실패, 2 사용법/입력 오류, 4 모든 계정 소진, 5 로그인된 계정 없음,
+       6 응답이 정상 종료되지 않았으나 본문은 출력함(다른 계정으로 재시도하지 않음)
 EOF
   exit 2
 }
@@ -69,10 +70,12 @@ done
 if [[ -n "$prompt_file" ]]; then
   [[ -f "$prompt_file" ]] || { echo "프롬프트 파일 없음: $prompt_file" >&2; exit 2; }
   cp "$prompt_file" "$work/.prompt.md"
-  prompt="작업 폴더의 .prompt.md 지시를 따르라. 파일을 만들거나 수정하지 말고 답만 출력하라."
+  prompt="작업 폴더의 .prompt.md 지시를 따르라. 파일을 만들거나 수정하지 말고, 계획서·승인 요청 없이 바로 답만 출력하라."
+else
+  prompt="$prompt"$'\n\n파일을 만들거나 수정하지 말고, 계획서·승인 요청 없이 바로 답만 출력하라.'
 fi
 
-out="$work/.response.json"
+out="$work/.response.jsonl"
 model="gemini-4-argon-$effort"   # 다른 모델로 대체하지 않는다.
 rc=0
 
@@ -82,42 +85,98 @@ run_agy() {
   (cd "$work" && HOME="$1" agy -p "$prompt" \
     --model "$model" \
     --mode plan --sandbox \
-    --output-format json \
+    --output-format stream-json \
     --print-timeout "${timeout}s") >"$out" 2>"$work/.stderr"
   rc=$?
   set -e
 }
 
-# 결과 판정과 출력. 종료 코드: 0 성공, 1 일반 실패, 3 사용량 소진으로 판정
+# 결과 판정과 출력. 종료 코드: 0 성공, 1 일반 실패, 3 사용량 소진으로 판정, 6 비정상 종료지만 본문 보존
 report() {
   python3 -I - "$out" "$work/.stderr" "$rc" "$model" "$1" <<'PY'
 import json, re, sys
 out, err, rc, model, acct = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4], sys.argv[5]
-raw = open(out, encoding="utf-8", errors="replace").read().strip()
+raw = open(out, encoding="utf-8", errors="replace").read()
 errtxt = open(err, errors="replace").read()
-try:
-    d = json.loads(raw.splitlines()[-1]) if raw else None
-except (json.JSONDecodeError, IndexError):
-    d = None
-if not (isinstance(d, dict) and d.get("status") == "SUCCESS" and rc == 0):
-    # 성공이 아닐 때만 오류 필드·응답·stderr 원문에서 사용량 소진 문구를 찾는다.
-    parts = [raw[-2000:], errtxt[-2000:]]
-    if isinstance(d, dict):
-        parts += [str(d.get("error", "")), str(d.get("response", ""))]
-    hay = "\n".join(parts)
-    m = re.search(r"quota|credits balance|RESOURCE_EXHAUSTED|429|rate.?limit|limit (reached|exceeded)|exhausted", hay, re.I)
-    if m:
-        s = max(0, m.start() - 80)
-        sys.stderr.write(f"[gemini-argon] account={acct} 사용량 소진으로 판정, 근거 원문: ...{hay[s:m.end() + 120]!r}\n")
-        sys.exit(3)
-    sys.stderr.write(f"agy 실패(account={acct}, rc={rc}):\n{raw[-2000:]}\n{errtxt[-2000:]}\n")
-    sys.exit(1)
-u = d.get("usage") or {}
-sys.stderr.write(
-    f"[gemini-argon] account={acct} model={model}(요청값) status={d.get('status')} conversation={d.get('conversation_id')} "
-    f"seconds={d.get('duration_seconds')} tokens={u.get('total_tokens')}\n"
-)
-print(d.get("response", ""))
+
+# stream-json: 한 줄에 JSON 하나. 결과 이벤트(d)와 init, 단계별 텍스트를 모은다.
+d = None
+served = None
+nonjson = []
+steps = {}      # step_index -> [step_type, 이어 붙인 텍스트]
+for line in raw.splitlines():
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        ev = json.loads(line)
+    except json.JSONDecodeError:
+        nonjson.append(line)
+        continue
+    if not isinstance(ev, dict):
+        nonjson.append(line)
+        continue
+    kind = ev.get("event")
+    if kind == "init":
+        served = (ev.get("init") or {}).get("model") or served
+    elif kind == "step_update":
+        su = ev.get("step_update") or {}
+        idx = su.get("step_index")
+        if idx is None:
+            continue
+        st = steps.setdefault(idx, ["", ""])
+        if su.get("step_type"):
+            st[0] = su["step_type"]
+        if su.get("tool_name") and not st[0]:
+            st[0] = "tool"
+        if su.get("text_delta"):
+            st[1] += su["text_delta"]
+    elif kind == "result" and isinstance(ev.get("result"), dict):
+        d = ev["result"]
+    elif "status" in ev and "event" not in ev:
+        d = ev   # 옛 json 형식 호환
+
+# 마지막 tool 단계 이후의 agent_response 텍스트를 순서대로 이은 것 = full
+tool_idx = [i for i, st in steps.items() if st[0] == "tool"]
+last_tool = max(tool_idx) if tool_idx else -1
+full = "".join(st[1] for i, st in sorted(steps.items())
+               if st[0] == "agent_response" and i > last_tool)
+resp = d.get("response") if isinstance(d, dict) else None
+resp = resp if isinstance(resp, str) else ""
+
+if isinstance(d, dict) and d.get("status") == "SUCCESS" and rc == 0:
+    text = resp
+    # 이어 쓰기가 SUCCESS로 끝난 경우: response가 뒷부분뿐이면 full을 낸다.
+    if len(full.strip()) > len(resp.strip()) + 20 and resp.strip() and full.rstrip().endswith(resp.strip()):
+        text = full
+    u = d.get("usage") or {}
+    mdl = f"model={model}(요청) served={served}" if served else f"model={model}(요청값)"
+    sys.stderr.write(
+        f"[gemini-argon] account={acct} {mdl} status={d.get('status')} conversation={d.get('conversation_id')} "
+        f"seconds={d.get('duration_seconds')} tokens={u.get('total_tokens')}\n"
+    )
+    print(text)
+    sys.exit(0)
+
+# 비SUCCESS: 소진 판정은 error·stderr·비JSON 원문에만 적용한다(본문 단어 오판 방지).
+errfield = str(d.get("error") or "") if isinstance(d, dict) else ""
+hay = "\n".join(["\n".join(nonjson)[-2000:], errtxt[-2000:], errfield])
+m = re.search(r"quota|credits balance|RESOURCE_EXHAUSTED|429|rate.?limit|limit (reached|exceeded)|exhausted", hay, re.I)
+if m:
+    s = max(0, m.start() - 80)
+    sys.stderr.write(f"[gemini-argon] account={acct} 사용량 소진으로 판정, 근거 원문: ...{hay[s:m.end() + 120]!r}\n")
+    sys.exit(3)
+
+body = full if full.strip() else resp
+if body.strip():
+    reason = (errfield.strip().splitlines() or [""])[0] or (f"status={d.get('status')}" if isinstance(d, dict) else f"결과 이벤트 없음, rc={rc}")
+    sys.stderr.write(f"[gemini-argon] 경고: 응답이 정상 종료되지 않았습니다(사유: {reason}). 본문은 보존해 출력합니다.\n")
+    print(body)
+    sys.exit(6)
+
+tail = "\n".join(nonjson)[-2000:] or raw[-2000:]
+sys.stderr.write(f"agy 실패(account={acct}, rc={rc}):\n{tail}\n{errtxt[-2000:]}\n")
+sys.exit(1)
 PY
 }
 

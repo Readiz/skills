@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # gemini-argon 계정 관리: 목록(남은 사용량)과 로그인 안내.
-# 토큰 파일은 읽거나 출력하지 않는다. 이메일도 표시하지 않는다.
+# 로그인 정보(파일·키체인)는 읽거나 출력하지 않는다. 이메일도 표시하지 않는다.
 set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=lib-accounts.sh
