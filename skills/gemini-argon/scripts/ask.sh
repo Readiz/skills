@@ -67,12 +67,18 @@ for f in ${files[@]+"${files[@]}"}; do
   cp "$f" "$dest"
 done
 
+# 명령 실행(ls 등)은 headless에서 거부되므로 읽을 파일 이름을 프롬프트에 직접 알려 준다.
+listing=""
+for f in ${files[@]+"${files[@]}"}; do listing="$listing, $(basename "$f")"; done
+guide="파일을 만들거나 수정하지 말고, 계획서·승인 요청 없이 바로 답만 출력하라. 명령 실행은 허용되지 않으니 파일은 읽기 도구로 직접 열어라."
+[[ -z "$listing" ]] || guide="$guide 작업 폴더의 입력 파일: ${listing#, }."
+
 if [[ -n "$prompt_file" ]]; then
   [[ -f "$prompt_file" ]] || { echo "프롬프트 파일 없음: $prompt_file" >&2; exit 2; }
   cp "$prompt_file" "$work/.prompt.md"
-  prompt="작업 폴더의 .prompt.md 지시를 따르라. 파일을 만들거나 수정하지 말고, 계획서·승인 요청 없이 바로 답만 출력하라."
+  prompt="작업 폴더의 .prompt.md 지시를 따르라. $guide"
 else
-  prompt="$prompt"$'\n\n파일을 만들거나 수정하지 말고, 계획서·승인 요청 없이 바로 답만 출력하라.'
+  prompt="$prompt"$'\n\n'"$guide"
 fi
 
 out="$work/.response.jsonl"
@@ -155,6 +161,11 @@ if isinstance(d, dict) and d.get("status") == "SUCCESS" and rc == 0:
         f"[gemini-argon] account={acct} {mdl} status={d.get('status')} conversation={d.get('conversation_id')} "
         f"seconds={d.get('duration_seconds')} tokens={u.get('total_tokens')}\n"
     )
+    if not text.strip():
+        text = full
+    if not text.strip():
+        sys.stderr.write(f"[gemini-argon] account={acct} 실패: 성공으로 끝났지만 답이 비어 있습니다. 대화 {d.get('conversation_id')}에서 도구 거부 등을 확인하세요.\n")
+        sys.exit(1)
     print(text)
     sys.exit(0)
 
