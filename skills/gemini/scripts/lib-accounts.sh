@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# gemini-argon 계정 공통 로직 (source 전용). ask.sh, accounts.sh가 함께 쓴다.
-# 계정 모델: main = 실제 $HOME 그대로, 그 외 = $GEMINI_ARGON_HOME/profiles/<이름>/ 을 HOME으로 쓴다.
+# gemini 스킬 계정 공통 로직 (source 전용). ask.sh, accounts.sh가 함께 쓴다.
+# 계정 모델: main = 실제 $HOME 그대로, 그 외 = $GEMINI_SKILL_HOME/profiles/<이름>/ 을 HOME으로 쓴다.
 # 로그인 정보(파일·키체인)는 읽지 않는다. 로그인 여부는 agy models 응답으로만 판단한다.
 
 GA_REAL_HOME=${GA_REAL_HOME:-$HOME}
-GA_ROOT=${GEMINI_ARGON_HOME:-$GA_REAL_HOME/.local/share/gemini-argon}
+GA_ROOT=${GEMINI_SKILL_HOME:-$GA_REAL_HOME/.local/share/gemini-skill}
 GA_PROFILES="$GA_ROOT/profiles"
 
 # 이름 검증: [A-Za-z0-9_-]+ 만 허용
@@ -30,17 +30,17 @@ ga_exists() {
   [[ -d "$GA_PROFILES/$1" ]]
 }
 
-# 계정 순서 출력(한 줄에 하나). GEMINI_ARGON_ACCOUNTS가 있으면 그것, 없으면 main + profiles 정렬순.
+# 계정 순서 출력(한 줄에 하나). GEMINI_SKILL_ACCOUNTS가 있으면 그것, 없으면 main + profiles 정렬순.
 ga_account_order() {
   local n IFS_SAVE=$IFS
-  if [[ -n "${GEMINI_ARGON_ACCOUNTS:-}" ]]; then
+  if [[ -n "${GEMINI_SKILL_ACCOUNTS:-}" ]]; then
     IFS=,
-    for n in $GEMINI_ARGON_ACCOUNTS; do
+    for n in $GEMINI_SKILL_ACCOUNTS; do
       IFS=$IFS_SAVE
       n=$(printf '%s' "$n" | tr -d '[:space:]')
       [[ -n "$n" ]] || continue
       if [[ "$n" != "main" ]] && ! ga_valid_name "$n"; then
-        echo "GEMINI_ARGON_ACCOUNTS의 계정 이름이 올바르지 않습니다: $n" >&2
+        echo "GEMINI_SKILL_ACCOUNTS의 계정 이름이 올바르지 않습니다: $n" >&2
         continue
       fi
       printf '%s\n' "$n"
@@ -56,7 +56,7 @@ ga_account_order() {
   fi
 }
 
-# 로그인 여부: 그 HOME으로 `agy models`를 불러 Argon 모델이 보이면 로그인된 것으로 본다.
+# 로그인 여부: 그 HOME으로 `agy models`를 불러 Neon 모델이 보이면 로그인된 것으로 본다.
 # 토큰은 파일에서 키체인으로 옮겨질 수 있어 파일 존재로 판단하지 않는다. 사용량은 쓰지 않는다.
 ga_has_login() {
   local home
@@ -70,12 +70,12 @@ try:
                        timeout=45, stdin=subprocess.DEVNULL, cwd="/")
 except Exception:
     sys.exit(1)
-sys.exit(0 if "gemini-4-argon" in (p.stdout or "") else 1)
+sys.exit(0 if "gemini-4-neon" in (p.stdout or "") else 1)
 PY2
 }
 
 # 계정별 /usage 조회. 한 줄 TSV 출력:
-#   state \t argon_fraction \t argon_reset \t g5h_fraction \t g5h_reset
+#   state \t weekly_fraction \t weekly_reset \t g5h_fraction \t g5h_reset   (Gemini Models 그룹의 gemini-weekly / gemini-5h)
 # state: ok | nologin | error  (nologin은 토큰 없음/인증 오류, error는 네트워크 등 그 외 실패)
 # 로그인 안 된 HOME에서 /usage가 인증 대기로 멈추지 않도록 먼저 agy models로 로그인을 확인한다.
 ga_usage() {
@@ -85,7 +85,7 @@ ga_usage() {
     return 0
   fi
   home=$(ga_home_for "$name")
-  work=$(mktemp -d "${TMPDIR:-/tmp}/gemini-argon-usage.XXXXXX")
+  work=$(mktemp -d "${TMPDIR:-/tmp}/gemini-usage.XXXXXX")
   chmod 700 "$work"
   GA_USAGE_HOME=$home GA_USAGE_WORK=$work python3 -I - <<'PY'
 import json, os, subprocess, sys, datetime
@@ -122,7 +122,7 @@ a = g = None
 try:
     for grp in d["command"]["data"]["groups"]:
         for b in grp.get("buckets", []):
-            if b.get("id") == "gemini-argon-wtu-weekly" or (grp.get("name") == "Gemini 4 Argon" and a is None):
+            if b.get("id") == "gemini-weekly":
                 a = (round(b["remaining_fraction"], 4), loc(b.get("reset_time")))
             elif b.get("id") == "gemini-5h":
                 g = (round(b["remaining_fraction"], 4), loc(b.get("reset_time")))

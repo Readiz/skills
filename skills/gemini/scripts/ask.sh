@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Antigravity CLI(agy)로 Gemini 4 Argon에 한 번 묻고 응답 본문만 출력한다.
+# Antigravity CLI(agy)로 Gemini 4 Neon에 한 번 묻고 응답 본문만 출력한다.
 # 입력 파일은 권한 700 임시 작업 폴더에 복사해 그 안에서만 읽게 한다.
 # 계정이 여러 개면 남은 사용량이 있는 계정을 순서대로 쓰고, 소진되면 다음 계정으로 같은 요청을 재시도한다.
 set -euo pipefail
@@ -9,16 +9,16 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 usage() {
   cat >&2 <<'USAGE'
-사용법: ask.sh [-e low|medium|high] [-t 초] [-a 계정] [-d 폴더]... [-f 파일]... [-o 폴더] [-k] (-p "프롬프트" | -P 프롬프트파일)
-  -e  Argon 추론 단계 (기본 medium)
+사용법: ask.sh [-e low|medium|high|xhigh] [-t 초] [-a 계정] [-d 폴더]... [-f 파일]... [-o 폴더] [-k] (-p "프롬프트" | -P 프롬프트파일)
+  -e  Neon 추론 단계 (기본 medium)
   -t  응답 제한 시간(초, 기본 600)
   -a  이 계정만 사용 (main 또는 accounts.sh로 만든 프로필). 생략하면 자동 선택:
-      계정 순서대로 Argon 남은 사용량이 있는 계정을 쓰고, 소진되면 다음 계정으로 넘어간다.
+      계정 순서대로 Gemini 주간·5시간 한도가 모두 남은 계정을 쓰고, 소진되면 다음 계정으로 넘어간다.
   -d  읽기 전용 폴더 모드. 폴더를 사본(snap/)으로 떠서 그 안을 모델이 직접 탐색하게 한다. 여러 번 지정 가능.
       git 저장소면 HEAD 기준 사본(미커밋 변경은 제외, 경고). HEAD에 없는(추적 밖·무시된) 경로는 현재 파일 기준 복사.
       -d가 둘 이상이면 모두 같은 저장소 안이어야 하며 사본은 저장소 루트와 같은 구조(agy cwd = 사본 루트).
       git이 아닌 폴더는 하나만 가능(현재 파일 기준, .git·node_modules 제외). 사본 전체 상한 200MB.
-      -f 파일은 사본 안 _argon_inputs/ 로 들어간다.
+      -f 파일은 사본 안 _inputs/ 로 들어간다.
   -f  모델이 읽을 파일. 여러 번 지정 가능. 임시 작업 폴더에 같은 이름으로 복사된다.
   -p  프롬프트 문자열
   -P  프롬프트 파일. 긴 지시는 이쪽을 쓴다.
@@ -47,21 +47,21 @@ while getopts "e:t:a:d:f:p:P:o:kh" opt; do
     *) usage ;;
   esac
 done
-case "$effort" in low|medium|high) ;; *) usage ;; esac
+case "$effort" in low|medium|high|xhigh) ;; *) usage ;; esac
 [[ -n "$prompt" || -n "$prompt_file" ]] || usage
 [[ -z "$prompt" || -z "$prompt_file" ]] || usage
 command -v agy >/dev/null || { echo "agy(Antigravity CLI)를 찾을 수 없습니다." >&2; exit 127; }
 
 # ---- 결과 저장(-o)용 상태 ----
 work="" record=0 teepid="" tdir="" errlog=""
-last_account="" last_before="?" last_after="?" prompt_sent=""
+last_account="" last_before="?" last_after="?" last_before5="?" last_after5="?" prompt_sent=""
 created_at=$(date +%Y-%m-%dT%H:%M:%S%z)
 t_start=$(date +%Y%m%d-%H%M%S)
-model="gemini-4-argon-$effort"   # 다른 모델로 대체하지 않는다.
+model="gemini-4-neon-$effort"   # 다른 모델로 대체하지 않는다.
 
 # -o 가 있으면 stderr 를 tee 로 파일에도 남긴다(화면 출력은 유지). fd 9 = 원래 stderr.
 if [[ -n "$out_root" ]]; then
-  tdir=$(mktemp -d "${TMPDIR:-/tmp}/gemini-argon-log.XXXXXX")
+  tdir=$(mktemp -d "${TMPDIR:-/tmp}/gemini-log.XXXXXX")
   errlog="$tdir/stderr.log"
   mkfifo "$tdir/fifo"
   exec 9>&2
@@ -85,7 +85,7 @@ finish() {
     [[ -z "$teepid" ]] || wait "$teepid" 2>/dev/null
     if [[ -n "$saved" ]]; then
       cp "$errlog" "$saved/stderr.log" 2>/dev/null && chmod 600 "$saved/stderr.log"
-      echo "[gemini-argon] 결과 저장: $saved" >&2
+      echo "[gemini] 결과 저장: $saved" >&2
     fi
     rm -rf "$tdir"
   fi
@@ -112,7 +112,7 @@ save_result() {
     fi
   } >"$dest/prompt.md"
   GA_ACCT="$acct" GA_MODEL="$model" GA_EFFORT="$effort" GA_CODE="$code" GA_WORK="$work" \
-  GA_BEFORE="$last_before" GA_AFTER="$last_after" GA_CREATED="$created_at" python3 -I - "$dest/meta.json" <<'PYM'
+  GA_BEFORE="$last_before" GA_AFTER="$last_after" GA_BEFORE5="$last_before5" GA_AFTER5="$last_after5" GA_CREATED="$created_at" python3 -I - "$dest/meta.json" <<'PYM'
 import json, os, sys
 w = os.environ["GA_WORK"]
 def lines(name):
@@ -143,8 +143,10 @@ meta = {
     "effort": os.environ["GA_EFFORT"],
     "folders": folders,
     "inputs": lines(".inputs"),
-    "argon_before": os.environ["GA_BEFORE"],
-    "argon_after": os.environ["GA_AFTER"],
+    "quota_before": os.environ["GA_BEFORE"],
+    "quota_after": os.environ["GA_AFTER"],
+    "quota_5h_before": os.environ["GA_BEFORE5"],
+    "quota_5h_after": os.environ["GA_AFTER5"],
     "attempts": lines(".attempts"),
     "created_at": os.environ["GA_CREATED"],
 }
@@ -193,7 +195,7 @@ if [[ $ndirs -gt 1 && $nplain -gt 0 ]]; then
   exit 2
 fi
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/gemini-argon.XXXXXX")
+work=$(mktemp -d "${TMPDIR:-/tmp}/gemini.XXXXXX")
 chmod 700 "$work"
 [[ $keep -ne 1 ]] || echo "작업 폴더: $work" >&2
 : >"$work/.result"
@@ -226,9 +228,9 @@ if [[ $ndirs -gt 0 ]]; then
           ndirty=$(git -C "$top" status --porcelain | wc -l | tr -d ' ')
         fi
         if [[ "$ndirty" -gt 0 ]]; then
-          echo "[gemini-argon] 주의: ${ndirty}개 파일의 미커밋 변경은 사본에 포함되지 않습니다(HEAD $short 기준)." >&2
+          echo "[gemini] 주의: ${ndirty}개 파일의 미커밋 변경은 사본에 포함되지 않습니다(HEAD $short 기준)." >&2
         fi
-        echo "[gemini-argon] 폴더 사본: $dir_in @ $short" >&2
+        echo "[gemini] 폴더 사본: $dir_in @ $short" >&2
         printf '%s\tgit\t%s\n' "$dir_in" "$short" >>"$work/.folders"
       else
         # HEAD에 없는 경로(git이 무시하거나 추적하지 않음): 작업 트리의 현재 파일을 복사한다.
@@ -239,7 +241,7 @@ if [[ $ndirs -gt 0 ]]; then
           cp -R "$dir_in/." "$snap/$prefix"
           find "$snap/$prefix" \( -name .git -o -name node_modules \) -prune -exec rm -rf {} + 2>/dev/null || true
         fi
-        echo "[gemini-argon] 폴더 사본: $dir_in (git 추적 밖, 현재 파일 기준)" >&2
+        echo "[gemini] 폴더 사본: $dir_in (git 추적 밖, 현재 파일 기준)" >&2
         printf '%s\tuntracked\t\n' "$dir_in" >>"$work/.folders"
       fi
       [[ -d "$snap/${prefix%/}" ]] || { echo "사본이 비어 있습니다: ${prefix:-.}" >&2; exit 2; }
@@ -255,7 +257,7 @@ if [[ $ndirs -gt 0 ]]; then
         find "$snap" \( -name .git -o -name node_modules \) -prune -exec rm -rf {} + 2>/dev/null || true
       fi
       single_cwd="$snap"
-      echo "[gemini-argon] 폴더 사본: $dir_in (git 아님, 현재 파일 기준)" >&2
+      echo "[gemini] 폴더 사본: $dir_in (git 아님, 현재 파일 기준)" >&2
       printf '%s\tplain\t\n' "$dir_in" >>"$work/.folders"
     fi
   done
@@ -267,12 +269,12 @@ if [[ $ndirs -gt 0 ]]; then
   fi
 fi
 
-# 입력 파일: 일반 모드는 작업 폴더, 폴더 모드는 cwd 아래 _argon_inputs/ 로 복사한다.
+# 입력 파일: 일반 모드는 작업 폴더, 폴더 모드는 cwd 아래 _inputs/ 로 복사한다.
 inputs_dir="$cwd"
 inputs_rel=""
 if [[ $mode_dir -eq 1 && ${#files[@]} -gt 0 ]]; then
-  inputs_dir="$cwd/_argon_inputs"
-  inputs_rel="_argon_inputs/"
+  inputs_dir="$cwd/_inputs"
+  inputs_rel="_inputs/"
   mkdir -p "$inputs_dir"
 fi
 listing=""
@@ -326,10 +328,11 @@ run_agy() {
   set -e
 }
 
-# 사용량 TSV(state \t frac ...)에서 Argon 남은 비율(%, 소수 1자리) 또는 ?
+# 사용량 TSV에서 남은 비율(%, 소수 1자리) 또는 ?. $2=w(주간, 기본) | h(5시간)
 usage_pct() {
-  local st="" fr=""
-  IFS=$'\t' read -r st fr _ <<<"$1" || true
+  local st="" fr="" wr="" hf="" hr=""
+  IFS=$'\t' read -r st fr wr hf hr <<<"$1" || true
+  [[ "${2:-w}" == "h" ]] && fr=$hf
   if [[ "$st" == "ok" && -n "$fr" ]]; then
     awk -v f="$fr" 'BEGIN{printf "%.1f", f * 100}'
   else
@@ -424,13 +427,13 @@ if isinstance(d, dict) and d.get("status") == "SUCCESS" and rc == 0:
     u = d.get("usage") or {}
     mdl = f"model={model}(요청) served={served}" if served else f"model={model}(요청값)"
     sys.stderr.write(
-        f"[gemini-argon] account={acct} {mdl} status={d.get('status')} conversation={d.get('conversation_id')} "
+        f"[gemini] account={acct} {mdl} status={d.get('status')} conversation={d.get('conversation_id')} "
         f"seconds={d.get('duration_seconds')} tokens={u.get('total_tokens')}\n"
     )
     if not text.strip():
         text = full
     if not text.strip():
-        sys.stderr.write(f"[gemini-argon] account={acct} 실패: 성공으로 끝났지만 답이 비어 있습니다. 대화 {d.get('conversation_id')}에서 도구 거부 등을 확인하세요.\n")
+        sys.stderr.write(f"[gemini] account={acct} 실패: 성공으로 끝났지만 답이 비어 있습니다. 대화 {d.get('conversation_id')}에서 도구 거부 등을 확인하세요.\n")
         sys.exit(1)
     print(clean(text))
     sys.exit(0)
@@ -441,13 +444,13 @@ hay = "\n".join(["\n".join(nonjson)[-2000:], errtxt[-2000:], errfield])
 m = re.search(r"quota|credits balance|RESOURCE_EXHAUSTED|429|rate.?limit|limit (reached|exceeded)|exhausted", hay, re.I)
 if m:
     s = max(0, m.start() - 80)
-    sys.stderr.write(f"[gemini-argon] account={acct} 사용량 소진으로 판정, 근거 원문: ...{hay[s:m.end() + 120]!r}\n")
+    sys.stderr.write(f"[gemini] account={acct} 사용량 소진으로 판정, 근거 원문: ...{hay[s:m.end() + 120]!r}\n")
     sys.exit(3)
 
 body = full if full.strip() else resp
 if body.strip():
     reason = (errfield.strip().splitlines() or [""])[0] or (f"status={d.get('status')}" if isinstance(d, dict) else f"결과 이벤트 없음, rc={rc}")
-    sys.stderr.write(f"[gemini-argon] 경고: 응답이 정상 종료되지 않았습니다(사유: {reason}). 본문은 보존해 출력합니다.\n")
+    sys.stderr.write(f"[gemini] 경고: 응답이 정상 종료되지 않았습니다(사유: {reason}). 본문은 보존해 출력합니다.\n")
     print(clean(body))
     sys.exit(6)
 
@@ -465,6 +468,7 @@ do_attempt() {
   if [[ -z "$utsv" ]]; then utsv=$(ga_usage "$name") || utsv=""; fi
   last_account=$name
   last_before=$(usage_pct "$utsv")
+  last_before5=$(usage_pct "$utsv" h)
   echo "$name" >>"$work/.attempts"
   rm -f "$work/.report.json"
   : >"$work/.result"
@@ -472,7 +476,8 @@ do_attempt() {
   last_r=0; report "$name" >"$work/.result" || last_r=$?
   atsv=$(ga_usage "$name") || atsv=""
   last_after=$(usage_pct "$atsv")
-  echo "[gemini-argon] account=$name Argon 주간 남은 ${last_before}% → ${last_after}%" >&2
+  last_after5=$(usage_pct "$atsv" h)
+  echo "[gemini] account=$name Gemini 주간 남은 ${last_before}% → ${last_after}% (5시간 ${last_before5}% → ${last_after5}%)" >&2
   cat "$work/.result"
 }
 
@@ -490,27 +495,31 @@ fi
 exhausted=""
 while IFS= read -r name; do
   if ! ga_exists "$name"; then
-    echo "[gemini-argon] account=$name 건너뜀: 프로필 폴더 없음" >&2; continue
+    echo "[gemini] account=$name 건너뜀: 프로필 폴더 없음" >&2; continue
   fi
-  ustate="" afrac="" areset="" utsv=""
+  ustate="" wfrac="" wreset="" hfrac="" hreset="" utsv=""
   utsv=$(ga_usage "$name") || utsv=""
-  IFS=$'\t' read -r ustate afrac areset _ _ <<<"$utsv" || true
+  IFS=$'\t' read -r ustate wfrac wreset hfrac hreset <<<"$utsv" || true
   case "$ustate" in
     nologin)
-      echo "[gemini-argon] account=$name 건너뜀: 로그인 필요 (accounts.sh list 참고)" >&2
+      echo "[gemini] account=$name 건너뜀: 로그인 필요 (accounts.sh list 참고)" >&2
       continue ;;
     ok)
-      if awk -v f="$afrac" 'BEGIN{exit !(f <= 0.01)}'; then
-        echo "[gemini-argon] account=$name 건너뜀: Argon 주간 사용량 소진 (리셋 $areset)" >&2
+      if awk -v f="$wfrac" 'BEGIN{exit !(f <= 0.01)}'; then
+        echo "[gemini] account=$name 건너뜀: Gemini 주간 한도 소진 (리셋 $wreset)" >&2
+        exhausted="$exhausted$name"$'\n'; continue
+      fi
+      if [[ -n "$hfrac" ]] && awk -v f="$hfrac" 'BEGIN{exit !(f <= 0.01)}'; then
+        echo "[gemini] account=$name 건너뜀: Gemini 5시간 한도 소진 (리셋 $hreset)" >&2
         exhausted="$exhausted$name"$'\n'; continue
       fi ;;
     *)
-      echo "[gemini-argon] account=$name 사용량 조회 실패, 일단 시도합니다." >&2
+      echo "[gemini] account=$name 사용량 조회 실패, 일단 시도합니다." >&2
       utsv="error" ;;
   esac
   do_attempt "$name" "$utsv"
   if [[ $last_r -eq 3 ]]; then
-    echo "[gemini-argon] account=$name 소진, 다음 계정으로 같은 요청을 재시도합니다." >&2
+    echo "[gemini] account=$name 소진, 다음 계정으로 같은 요청을 재시도합니다." >&2
     exhausted="$exhausted$name"$'\n'
     continue
   fi
@@ -521,11 +530,11 @@ if [[ -z "$exhausted" ]]; then
   echo "사용 가능한 로그인된 계정이 없습니다. 'accounts.sh list'로 확인하세요." >&2
   exit 5
 fi
-echo "모든 사용 가능 계정의 Argon 사용량이 소진되었습니다. 리셋 시각 요약:" >&2
+echo "모든 사용 가능 계정의 Gemini 한도(주간 또는 5시간)가 소진되었습니다. 리셋 시각 요약:" >&2
 while IFS= read -r name; do
   [[ -n "$name" ]] || continue
-  areset=""
-  IFS=$'\t' read -r _ _ areset _ _ <<<"$(ga_usage "$name")" || true
-  echo "  $name: Argon 주간 리셋 ${areset:-조회 실패}" >&2
+  wreset="" hreset=""
+  IFS=$'\t' read -r _ _ wreset _ hreset <<<"$(ga_usage "$name")" || true
+  echo "  $name: 주간 리셋 ${wreset:-조회 실패} / 5시간 리셋 ${hreset:-조회 실패}" >&2
 done <<<"$exhausted"
 exit 4

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Gemini Argon"
-  short_description: "Gemini 4 Argon에 검토·작업을 맡김: 로컬 파일은 Antigravity CLI, Drive 자료는 웹 작업 모드"
-  default_prompt: "$gemini-argon을 사용해 이 시나리오 파일을 Gemini Argon에게 검토 받아줘."

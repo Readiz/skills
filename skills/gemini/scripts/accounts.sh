@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# gemini-argon 계정 관리: 목록(남은 사용량)과 로그인 안내.
+# gemini 스킬 계정 관리: 목록(남은 사용량)과 로그인 안내.
 # 로그인 정보(파일·키체인)는 읽거나 출력하지 않는다. 이메일도 표시하지 않는다.
 set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -9,9 +9,9 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 usage() {
   cat >&2 <<'EOF2'
 사용법:
-  accounts.sh list            계정 순서대로 로그인 여부, Argon 주간 남은 %와 리셋 시각, Gemini 5시간 남은 %
+  accounts.sh list            계정 순서대로 로그인 여부, Gemini 주간 남은 %(리셋)와 5시간 남은 %(리셋)
   accounts.sh login <이름>    프로필 폴더를 만들고 직접 실행할 로그인 명령을 안내 (이름: [A-Za-z0-9_-]+, main 예약)
-계정 순서: GEMINI_ARGON_ACCOUNTS(쉼표 구분) 또는 main + profiles 정렬순.
+계정 순서: GEMINI_SKILL_ACCOUNTS(쉼표 구분) 또는 main + profiles 정렬순.
 EOF2
   exit 2
 }
@@ -27,16 +27,16 @@ login_hint() {
 }
 
 cmd_list() {
-  local name state af ar gf gr
+  local name state wf wr gf gr
   while IFS= read -r name; do
     if [[ "$name" != "main" ]] && ! ga_exists "$name"; then
       echo "[$name] 프로필 폴더 없음. 'accounts.sh login $name' 으로 만드세요."
       continue
     fi
-    IFS=$'\t' read -r state af ar gf gr <<<"$(ga_usage "$name")"
+    IFS=$'\t' read -r state wf wr gf gr <<<"$(ga_usage "$name")"
     case "$state" in
       ok)
-        echo "[$name] 로그인됨  Argon 주간 남은 $(pct "$af") (리셋 $ar)  Gemini 5시간 남은 $( [[ -n "$gf" ]] && pct "$gf" || echo '?' )${gr:+ (리셋 $gr)}" ;;
+        echo "[$name] 로그인됨  Gemini 주간 남은 $(pct "$wf") (리셋 $wr) / 5시간 남은 $( [[ -n "$gf" ]] && pct "$gf" || echo '?' )${gr:+ (리셋 $gr)}" ;;
       nologin)
         echo "[$name] 로그인 필요"
         login_hint "$name" ;;

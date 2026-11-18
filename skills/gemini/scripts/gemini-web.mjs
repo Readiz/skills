@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 로그인된 OpenClaw 브라우저에서 Gemini 웹을 새 탭으로 열어 작업 모드 + Argon으로 요청을 보내고
+// 로그인된 OpenClaw 브라우저에서 Gemini 웹을 새 탭으로 열어 태스크(작업) 모드 + Neon으로 요청을 보내고
 // 완료된 마지막 응답 본문을 stdout으로 낸다. 진행 정보는 stderr에 남긴다.
 // 브라우저 시작·상태는 openclaw CLI로, 탭 조작은 같은 브라우저의 CDP에 직접 붙어서 한다
 // (CLI는 호출마다 다시 접속해 폴링에 쓰기에는 느리다).
@@ -7,21 +7,21 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const USAGE = `사용법: gemini-web.mjs (--prompt "문장" | --prompt-file 파일) [옵션]
-  --mode 작업|채팅      기본 작업
-  --model argon|flash   기본 argon
+  --mode 태스크|채팅    기본 태스크 (작업은 태스크의 옛 이름, 같은 뜻)
+  --model neon|hydrogen 기본 neon
   --wait-min 분         응답 대기 상한, 기본 40
   --out 파일            응답을 파일로도 저장
   --keep-tab            끝난 뒤 작업 탭을 닫지 않음
   --profile 이름        OpenClaw 브라우저 프로필, 기본 GEMINI_BROWSER_PROFILE 또는 openclaw`;
 
-const opt = { mode: '작업', model: 'argon', waitMin: 40, keepTab: false };
+const opt = { mode: '태스크', model: 'neon', waitMin: 40, keepTab: false };
 const argv = process.argv.slice(2);
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   const next = () => { if (i + 1 >= argv.length) usage(); return argv[++i]; };
   if (a === '--prompt') opt.prompt = next();
   else if (a === '--prompt-file') opt.prompt = readFileSync(next(), 'utf8');
-  else if (a === '--mode') opt.mode = next();
+  else if (a === '--mode') { opt.mode = next(); if (opt.mode === '작업') opt.mode = '태스크'; }
   else if (a === '--model') opt.model = next().toLowerCase();
   else if (a === '--wait-min') opt.waitMin = Number(next());
   else if (a === '--out') opt.out = next();
@@ -30,12 +30,12 @@ for (let i = 0; i < argv.length; i++) {
   else usage();
 }
 opt.prompt = (opt.prompt || '').trim();
-if (!opt.prompt || !['작업', '채팅'].includes(opt.mode) || !['argon', 'flash'].includes(opt.model)
+if (!opt.prompt || !['태스크', '채팅'].includes(opt.mode) || !['neon', 'hydrogen'].includes(opt.model)
   || !(opt.waitMin > 0)) usage();
 const profile = opt.profile || process.env.GEMINI_BROWSER_PROFILE || 'openclaw';
-const MODEL_LABEL = opt.model === 'argon' ? 'Argon' : 'Flash';
-const MODEL_RE = opt.model === 'argon' ? '/Argon(?![-\\w])/' : '/Flash(?![-\\w])/'; // Flash-Lite와 구분
-const PLACEHOLDER = opt.mode === '작업' ? '작업을 설명하세요' : 'Gemini에게 물어보기';
+const MODEL_LABEL = opt.model === 'neon' ? 'Neon' : 'Hydrogen';
+const MODEL_RE = `/4 ${MODEL_LABEL}(?![-\\w])/`;
+const PLACEHOLDER = opt.mode === '태스크' ? '태스크를 설명하세요' : 'Gemini에게 물어보기';
 
 function usage() { process.stderr.write(`${USAGE}\n`); process.exit(2); }
 const log = (msg) => process.stderr.write(`[gemini-web] ${msg}\n`);
