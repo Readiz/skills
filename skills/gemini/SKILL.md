@@ -135,7 +135,7 @@ node <스킬 디렉터리>/scripts/gemini-web.mjs --prompt "구글 드라이브�
 ## 웹 모드 구현 메모
 
 - 탭 조작은 OpenClaw가 띄운 브라우저의 CDP(`status`의 `cdpPort`)에 직접 붙어서 한다. `openclaw browser evaluate`/`wait`를 반복 호출하면 호출마다 다시 접속해 수십 초씩 걸리고, 백그라운드 탭에서 `wait --fn`이 풀리지 않는 경우가 있었다.
-- 화면 판별 기준: 모드는 입력창 `data-placeholder`(`태스크를 설명하세요`, 모드 탭 라벨 `태스크`), 모델은 `모드 선택 도구 열기, 현재 Hydrogen 모드 사용 중` 형식의 라벨(Neon 선택 시 `현재 Neon 모드`가 될 것으로 보이나 아직 선택해 확인하지 않았다)과 `menuitemradio` 항목(`일상생활 지원 4 Hydrogen`, `Deeper analysis 4 Neon`), 진행 중은 `대답 생성 중지` 버튼, 응답은 마지막 `model-response`의 `message-content`. Gemini UI가 바뀌어 스크립트가 실패하면 스크린샷으로 확인하고 이 기준을 고친다.
+- 화면 판별 기준: 모드는 입력창 `data-placeholder`(`태스크를 설명하세요`, 모드 탭 라벨 `태스크`), 모델은 `모드 선택 도구 열기, 현재 Neon 모드 사용 중` 라벨(2026-11-19 실제 선택·제출로 확인, 응답 37초)과 `menuitemradio` 항목(`일상생활 지원 4 Hydrogen`, `Deeper analysis 4 Neon`), 진행 중은 `대답 생성 중지` 버튼, 응답은 마지막 `model-response`의 `message-content`. Gemini UI가 바뀌어 스크립트가 실패하면 스크린샷으로 확인하고 이 기준을 고친다.
 - 진행 중인 대화 탭에서 `navigate`로 다른 주소로 이동하면 탭이 응답하지 않을 수 있다. 새 요청은 항상 새 탭으로 연다.
 
 ## 유튜브 영상
